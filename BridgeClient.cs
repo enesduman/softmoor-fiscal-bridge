@@ -3,12 +3,19 @@
 
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SoftmoorFiscalBridge;
 
 public sealed class BridgeClient
 {
     private readonly HttpClient _http;
+
+    // null alanları hiç gönderme (backend nullish kabul ediyor ama temiz payload)
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     public BridgeClient(BridgeConfig cfg)
     {
@@ -49,7 +56,8 @@ public sealed class BridgeClient
             zNo = r.ZNo,
             error = r.Error,
         };
-        using var res = await _http.PostAsJsonAsync("fiscal-bridge/result", payload, ct);
+        using var res = await _http.PostAsJsonAsync(
+            "fiscal-bridge/result", payload, JsonOpts, ct);
         if (!res.IsSuccessStatusCode)
         {
             var body = await res.Content.ReadAsStringAsync(ct);
