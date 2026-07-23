@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>SoftmoorFiscalBridge</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json" Condition="Exists('appsettings.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    Hugin SDK (huginsdk/fpu) eklendiğinde:
+      1. git clone https://github.com/huginsdk/fpu
+      2. C# kütüphane projesini bu solution'a ekleyin ya da derlenmiş DLL'i
+         referans verin:
+      <ItemGroup>
+        <Reference Include="HuginFpu">
+          <HintPath>lib\HuginFpu.dll</HintPath>
+        </Reference>
+      </ItemGroup>
+      3. Fiscal/HuginFpuPrinter.cs içindeki TODO bölümlerini SDK çağrılarıyla doldurun.
+  -->
+
+</Project>
