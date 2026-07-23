@@ -17,6 +17,9 @@ public sealed class BridgeClient
             BaseAddress = new Uri(cfg.CloudBaseUrl.TrimEnd('/') + "/"),
             Timeout = TimeSpan.FromSeconds(20),
         };
+        // ÖNEMLİ: .NET HttpClient varsayılan User-Agent GÖNDERMEZ; backend'in
+        // bot koruması UA'sız istekleri 404 "Not found" ile reddediyor.
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("SoftmoorFiscalBridge/1.0");
         _http.DefaultRequestHeaders.Add("x-restaurant-id", cfg.RestaurantId);
         _http.DefaultRequestHeaders.Add("x-bridge-key", cfg.BridgeKey);
     }
