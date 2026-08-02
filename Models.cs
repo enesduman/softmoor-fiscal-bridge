@@ -20,6 +20,14 @@ public sealed class BridgeConfig
 
     /// <summary>true iken cihaz yerine sahte yazıcı (uçtan uca test)</summary>
     public bool UseMockPrinter { get; set; } = true;
+    /// <summary>Hugin PC Link X-SoftwareId — entegratör/işletme VKN bilgisi.</summary>
+    public string SoftwareId { get; set; } = "";
+    /// <summary>Boşsa aktif ağ kartının MAC adresi kullanılır.</summary>
+    public string HardwareId { get; set; } = "";
+    public int DeviceTimeoutSeconds { get; set; } = 120;
+    public bool AllowInvalidDeviceCertificate { get; set; } = true;
+    /// <summary>approved | declined | failed</summary>
+    public string MockPaymentOutcome { get; set; } = "approved";
 }
 
 // ── Bulut yanıt modelleri ────────────────────────────────────
@@ -50,6 +58,8 @@ public sealed class FiscalJob
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("provider")] public string Provider { get; set; } = "hugin";
+    [JsonPropertyName("jobType")] public string JobType { get; set; } = "fiscal_receipt";
+    [JsonPropertyName("requestId")] public string? RequestId { get; set; }
     [JsonPropertyName("sale")] public Sale Sale { get; set; } = new();
 }
 
@@ -87,4 +97,13 @@ public sealed class SalePayment
 
 // ── Fiş sonucu ───────────────────────────────────────────────
 
-public sealed record FiscalResult(bool Ok, string? ReceiptNo, string? ZNo, string? Error);
+public sealed record FiscalResult(
+    bool Ok,
+    string? ReceiptNo,
+    string? ZNo,
+    string? Error,
+    string? Outcome = null,
+    string? TransactionId = null,
+    string? AuthCode = null,
+    string? Rrn = null,
+    string? CardMask = null);

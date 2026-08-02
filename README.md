@@ -1,21 +1,24 @@
 # Softmoor Fiscal Bridge
 
 Restorandaki **kasa bilgisayarında** çalışan küçük köprü ajanı. Softmoor Menu
-panelinde hesap kapatılınca bulutta oluşan **fiş işlerini** çeker, yerel
-ağdaki **Hugin YN ÖKC**'ye bastırır ve fiş numarasını panele geri bildirir.
+panelinden oluşan **fiş ve terminal ödeme işlerini** çeker, yerel ağdaki
+**Hugin YN ÖKC** ile HTTPS üzerinden haberleşir ve sonucu panele geri bildirir.
 
 ```
 [menu.softmoor.com backend] --poll/result (outbound HTTPS)--> [Bu ajan]
                                                                   |
-                                                        TCP (yerel ağ)
+                                                      HTTPS (yerel ağ)
                                                                   v
                                                      [Hugin ÖKC  192.168.x.x]
 ```
 
 - Dışarıdan içeri bağlantı YOK (port yönlendirme gerekmez) — ajan buluta
   kendisi bağlanır.
-- Bulut 2 dakikada sonucu almazsa işi yeniden kuyruğa alır (ajan yeniden
-  başlasa bile iş kaybolmaz).
+- Fiş işleri zaman aşımında yeniden kuyruğa alınır. Terminal ödeme işi zaman
+  aşımına girerse ikinci çekimi önlemek için `unknown` olur ve cihaz kontrolü ister.
+- Sipariş, kart tahsilatı cihaz tarafından onaylanmadan `paid` yapılmaz.
+- Cihaz sonucu önce `result-outbox.json` dosyasına yazılır; internet veya bridge
+  yeniden başlatılsa bile kesin sonuç buluta ulaşana kadar saklanır.
 
 ## Kurulum
 
@@ -34,20 +37,24 @@ ağdaki **Hugin YN ÖKC**'ye bastırır ve fiş numarasını panele geri bildiri
 ### 3. Ajanı yapılandır ve çalıştır
 ```bash
 cp appsettings.example.json appsettings.json
-# RestaurantId + BridgeKey değerlerini yapıştır
+# RestaurantId + BridgeKey + SoftwareId değerlerini yapıştır
 dotnet run
 ```
 İlk çalıştırma **Mock modundadır** (`UseMockPrinter: true`): gerçek fiş
-basılmaz, fişler konsola yazılır ve panelde "Fiş #M..." görünür — uçtan uca
-akışı cihazsız doğrulamak için. Panelde **Köprü: çevrimiçi** rozetini görün.
+basılmaz, işlemler konsola yazılır — uçtan uca akışı cihazsız doğrulamak için.
+`MockPaymentOutcome` ile `approved`, `declined` ve `failed` senaryoları
+denenebilir. Panelde **Köprü: çevrimiçi** rozetini görün.
 
-### 4. Hugin SDK'yı bağla (gerçek fiş)
-1. `git clone https://github.com/huginsdk/fpu`
-2. C# kütüphanesini bu projeye referans ver (`.csproj` içindeki nota bakın)
-3. `Fiscal/HuginFpuPrinter.cs` içindeki **TODO** bölümlerini SDK çağrılarıyla
-   doldurun (akış dosyada adım adım yorumlanmıştır:
-   Connect → PrintDocumentHeader → PrintItem × n → PrintPayment × n → CloseReceipt)
-4. `appsettings.json` → `"UseMockPrinter": false`
+### 4. Hugin PC Link'i aç (gerçek cihaz)
+1. Hugin'den PC Link entegrasyon/aktivasyon bilgisini alın.
+2. Cihazda PC Link'i açın ve kasa PC'sinden `https://CIHAZ-IP:4443` erişimini doğrulayın.
+3. `SoftwareId` alanına Hugin entegrasyonunda tanımlanan VKN'yi girin.
+4. `HardwareId` boşsa aktif ağ kartının MAC'i kullanılır; Hugin eşleşmesinde
+   sabit MAC gerekiyorsa değeri açıkça yazın.
+5. `appsettings.json` → `"UseMockPrinter": false`.
+
+Bridge resmi iki adımlı PC Link akışını kullanır: `POST /v1/documents`, ardından
+ürünler ve `EFT_POS` ödeme ile `PUT /v1/documents/{id}`. DLL/SDK gerekmez.
 
 ### 5. Windows servisi olarak (opsiyonel, önerilir)
 ```powershell
@@ -69,4 +76,6 @@ raporuna girer). İlk canlı testleri:
 | Panelde köprü **çevrimdışı** | Ajan kapalı / internet yok / anahtar yenilenmiş (panelden yeni anahtar alın) |
 | `poll 401` | RestaurantId/BridgeKey hatalı veya anahtar yenilenmiş |
 | Fiş `failed: Cihaz IP/port tanımsız` | Panel ÖKC ayarlarında IP/port eksik |
-| Fiş `failed: Hugin SDK henüz bağlanmadı` | Adım 4 tamamlanmamış (Mock'tan çıkılmış ama SDK yok) |
+| `SoftwareId tanımsız` | Hugin entegrasyonunda tanımlanan VKN appsettings'e girilmemiş |
+| `Terminali kontrol et` | Ödeme sırasında zaman aşımı oldu; yeni çekim başlatmadan son işlemi cihazdan kontrol edin |
+| HTTP 206 / mali belge kapanmadı | Kart tahsil edilmiştir; cihazdaki kağıt/pil sorununu giderip açık belgeyi tamamlayın |

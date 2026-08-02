@@ -8,5 +8,5 @@ public interface IFiscalPrinter
     /// Satışı mali yazıcıya bas. Başarıda fiş no (ve varsa Z no) döner.
     /// Hata durumunda Ok=false + Error (bulutta Order.fiscal.error olarak görünür).
     /// </summary>
-    Task<FiscalResult> PrintSaleAsync(Sale sale, DeviceConfig device, CancellationToken ct);
+    Task<FiscalResult> ProcessAsync(FiscalJob job, DeviceConfig device, CancellationToken ct);
 }

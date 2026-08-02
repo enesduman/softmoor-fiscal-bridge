@@ -55,6 +55,11 @@ public sealed class BridgeClient
             receiptNo = r.ReceiptNo,
             zNo = r.ZNo,
             error = r.Error,
+            outcome = r.Outcome,
+            transactionId = r.TransactionId,
+            authCode = r.AuthCode,
+            rrn = r.Rrn,
+            cardMask = r.CardMask,
         };
         using var res = await _http.PostAsJsonAsync(
             "fiscal-bridge/result", payload, JsonOpts, ct);

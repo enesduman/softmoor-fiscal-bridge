@@ -15,17 +15,4 @@
     </None>
   </ItemGroup>
 
-  <!--
-    Hugin SDK (huginsdk/fpu) eklendiğinde:
-      1. git clone https://github.com/huginsdk/fpu
-      2. C# kütüphane projesini bu solution'a ekleyin ya da derlenmiş DLL'i
-         referans verin:
-      <ItemGroup>
-        <Reference Include="HuginFpu">
-          <HintPath>lib\HuginFpu.dll</HintPath>
-        </Reference>
-      </ItemGroup>
-      3. Fiscal/HuginFpuPrinter.cs içindeki TODO bölümlerini SDK çağrılarıyla doldurun.
-  -->
-
 </Project>

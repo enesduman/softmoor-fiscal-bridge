@@ -3,7 +3,7 @@
 // Görev: bulut (menu.softmoor.com backend) fiş işlerini kuyruğa yazar;
 // bu ajan poll ile çeker, yerel ağdaki ÖKC'ye basar, sonucu bildirir.
 //
-//   [Bulut] --poll/result (outbound HTTPS)--> [Bu ajan] --TCP--> [Hugin ÖKC]
+//   [Bulut] --poll/result (outbound HTTPS)--> [Bu ajan] --HTTPS--> [Hugin ÖKC]
 //
 // Çalıştırma:  dotnet run   (veya yayınlanmış exe; Windows service için README)
 
@@ -39,9 +39,10 @@ if (cfg is null ||
 }
 
 var client = new BridgeClient(cfg);
+var outbox = new ResultOutbox(Path.Combine(AppContext.BaseDirectory, "result-outbox.json"));
 IFiscalPrinter printer = cfg.UseMockPrinter
-    ? new MockPrinter()
-    : new HuginFpuPrinter();
+    ? new MockPrinter(cfg)
+    : new HuginFpuPrinter(cfg);
 
 Log($"Softmoor Fiscal Bridge başladı — yazıcı: " +
     (cfg.UseMockPrinter ? "MOCK (test)" : "Hugin") +
@@ -58,6 +59,13 @@ while (!cts.IsCancellationRequested)
 {
     try
     {
+        foreach (var pending in outbox.Pending())
+        {
+            await ReportWithRetryAsync(client, pending.Key, pending.Value, cts.Token);
+            outbox.Remove(pending.Key);
+            Log($"Bekleyen sonuç buluta iletildi: {pending.Key}");
+        }
+
         var data = await client.PollAsync(cts.Token);
         backoff = 0;
 
@@ -68,23 +76,30 @@ while (!cts.IsCancellationRequested)
             FiscalResult result;
             try
             {
-                result = await printer.PrintSaleAsync(job.Sale, data!.Device, cts.Token);
+                result = await printer.ProcessAsync(job, data!.Device, cts.Token);
             }
             catch (Exception ex)
             {
                 result = new FiscalResult(false, null, null, ex.Message);
             }
 
+            // Tahsilat/fiş sonucu kaybolmasın: buluta göndermeden önce yerel
+            // kalıcı kuyruğa yaz. Başarılı rapordan sonra silinir.
+            outbox.Put(job.Id, result);
+
             try
             {
-                await client.ReportAsync(job.Id, result, cts.Token);
+                await ReportWithRetryAsync(client, job.Id, result, cts.Token);
+                outbox.Remove(job.Id);
                 Log(result.Ok
-                    ? $"  ✓ Fiş basıldı: #{result.ReceiptNo}"
+                    ? job.JobType == "terminal_payment"
+                        ? $"  ✓ POS onaylandı: {result.TransactionId ?? "işlem no yok"}"
+                        : $"  ✓ Fiş basıldı: #{result.ReceiptNo}"
                     : $"  ✗ Başarısız: {result.Error}");
             }
             catch (Exception ex)
             {
-                // Result iletilemedi — iş bulutta 2 dk sonra yeniden pending olur
+                // Yerel outbox'ta kaldı; sonraki döngü/açılışta yeniden bildirilir.
                 Log($"  ! Sonuç bildirilemedi: {ex.Message}");
             }
         }
@@ -113,3 +128,23 @@ return 0;
 
 static void Log(string msg) =>
     Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {msg}");
+
+static async Task ReportWithRetryAsync(
+    BridgeClient client, string jobId, FiscalResult result, CancellationToken ct)
+{
+    Exception? last = null;
+    for (var attempt = 1; attempt <= 3; attempt++)
+    {
+        try
+        {
+            await client.ReportAsync(jobId, result, ct);
+            return;
+        }
+        catch (Exception ex) when (attempt < 3)
+        {
+            last = ex;
+            await Task.Delay(TimeSpan.FromSeconds(attempt * 2), ct);
+        }
+    }
+    throw last ?? new InvalidOperationException("Sonuç bildirilemedi");
+}
